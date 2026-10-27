@@ -1,5 +1,7 @@
 import { RANDOM_THEMES } from './theme'
 
+export const HINT_REMINDER = 'The prismantis render note earlier in this conversation still applies.'
+
 export const HINT = [
   'Replies in this session are drawn by the prismantis mod, which runs inside Claude Code and is not a command or tool to call: when the user asks to show something with prismantis, write it as markdown in the reply.',
   'Markdown tables, GitHub alerts (> [!WARNING], > [!NOTE]), fenced code with a language tag, and ```mermaid blocks render as colored terminal graphics:',

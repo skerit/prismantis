@@ -4,6 +4,7 @@ import { expect, mock, test as base } from 'claude-code/testing'
 import { keepFormulas, padFor, ratexColor } from '../hooks/latex'
 import { parse, texText } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
+import { transcriptOf } from './transcript'
 
 const PNG_160x80 = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAABQAQAAAAC2JkOZAAAAFklEQVR42mNgGAWjYBSMglEwCgYeAAAGkAAB8Q2GVgAAAABJRU5ErkJggg=='
 const PNG_800x400 = 'iVBORw0KGgoAAAANSUhEUgAAAyAAAAGQAQAAAAB+XjmZAAAAPklEQVR42u3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4NndAAAYtfwy0AAAAASUVORK5CYII='
@@ -144,6 +145,7 @@ test('a formula the renderer rejects falls back to its text', async ($, on) => {
 
 test('without the renderer installed, math stays text and no LaTeX hint is sent', async ($, on) => {
   mock.env(on, KITTY)
+  transcriptOf(on)
   const clock = mock.clock(on)
   on('session.surfaces', () => ({ value: ['terminal'] as const }))
   on('process.run', () => ({ deny: 'spawn ratex-render ENOENT' }))
@@ -162,6 +164,7 @@ test('without the renderer installed, math stays text and no LaTeX hint is sent'
 
 test('the prompt hint says display math renders when the renderer works', async ($, on) => {
   mock.env(on, KITTY)
+  transcriptOf(on)
   const clock = mock.clock(on)
   ratex(on)
   on('session.start', () => ({ cwd: '/tmp' }))
@@ -176,6 +179,7 @@ test('the prompt hint says display math renders when the renderer works', async 
 
 test('a prompt sent while the renderer check is still running is not held up and carries no LaTeX hint', async ($, on) => {
   mock.env(on, KITTY)
+  transcriptOf(on)
   const clock = mock.clock(on)
   let release = () => {}
   const held = new Promise<void>(resolve => (release = resolve))

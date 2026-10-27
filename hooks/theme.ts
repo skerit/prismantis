@@ -47,6 +47,7 @@ export type Style = {
   pathLinks: boolean
   found?: ReadonlySet<string>
   diagramHints: boolean
+  hintTiming: 'once' | 'reminder' | 'every'
   issueHint: boolean
   rtl: 'auto' | Terminal | 'off'
   reorder: boolean
@@ -104,6 +105,7 @@ export const resolveStyle = (options: PluginOptions): Style => {
     fileLinks: null,
     pathLinks: false,
     diagramHints: options.diagramHints !== false && options.mermaid !== false,
+    hintTiming: pick(options.hintTiming, ['once', 'reminder', 'every'] as const, 'once'),
     issueHint: options.issueHint !== false,
     rtl,
     reorder: rtl !== 'auto' && rtl !== 'off',

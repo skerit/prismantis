@@ -13,7 +13,7 @@ import { drawDiagrams } from './mermaid'
 import type { CopyButton, DrawPaste, Fold, TerminalEnv } from './render'
 import { MARK, bashEdits, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, takesClickableMarks, takesEditorLinks, takesHttpLinks, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
-import { HINT, ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
+import { HINT, HINT_REMINDER, ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, THEME_PREVIEW, findSetup, helpText, languageShowcase, rtlShowcaseText, setupParts, setupSteps, setupText, showcaseText } from './help'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from './theme'
@@ -25,6 +25,20 @@ const HINTED_ORIGINS = ['composer', 'bridge', 'plugin'] as const satisfies reado
 const takesHint = (origin: PromptOrigin): boolean => HINTED_ORIGINS.some(kind => kind === origin.kind)
 
 const LATEX_HINT = 'This terminal typesets LaTeX math: a formula in $$…$$ on lines of its own, or in a ```math block, renders as an image (KaTeX syntax). Inline $…$ does not render, so write inline math as plain text or Unicode.'
+
+const ONCE_PER_CONTEXT_HINTS = [HINT, FIGURE_HINT, LATEX_HINT]
+
+const contextText = async ($: EngineInterface): Promise<string> => {
+  const messages = await $.session.messages({ as: 'api' })
+  return (Array.isArray(messages) ? messages : []).flatMap(m => (m.role === 'user' ? m.content.flatMap(block => (block.type === 'text' && typeof block.text === 'string' ? [block.text] : [])) : [])).join('\n')
+}
+
+const hintsToSend = async ($: EngineInterface, timing: Style['hintTiming'], hints: readonly string[]): Promise<string[]> => {
+  if (timing === 'every' || !hints.some(hint => ONCE_PER_CONTEXT_HINTS.includes(hint))) return [...hints]
+  const sent = await contextText($)
+  const unsent = hints.filter(hint => !ONCE_PER_CONTEXT_HINTS.includes(hint) || !sent.includes(hint))
+  return timing === 'reminder' && unsent.length < hints.length ? [...unsent, HINT_REMINDER] : unsent
+}
 
 const detectTerminal = async ($: EngineInterface): Promise<Terminal | null> => {
   const program = await $.env.get('TERM_PROGRAM')
@@ -729,7 +743,7 @@ export const register: Register = (on, options) => {
     terminal = await probe($, style, probes)
     if (!takesHint(e.origin)) return next(e)
     if (style.diagramHints) void latexEngine($, latex)
-    const hints = hintsFor(style, latex, prompts++)
+    const hints = await hintsToSend($, style.hintTiming, hintsFor(style, latex, prompts++))
     return hints.length ? next({ ...e, context: [...(e.context ?? []), ...hints] }) : next(e)
   })
 

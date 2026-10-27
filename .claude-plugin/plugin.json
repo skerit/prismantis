@@ -329,8 +329,15 @@
     "diagramHints": {
       "type": "boolean",
       "title": "Diagram hints",
-      "description": "Attach a short note, read by the model and never shown, to each prompt you type or another plugin sends, saying tables, code, mermaid diagrams, charts and figures render here, and LaTeX formulas when the renderer runs. About 630 tokens per prompt (about 275 for the main part, about 360 for figures), about 80 more with LaTeX. Off when mermaid is off.",
+      "description": "Attach a short note, read by the model and never shown, to the prompts you type or another plugin sends (when: see hintTiming), saying tables, code, mermaid diagrams, charts and figures render here, and LaTeX formulas when the renderer runs. About 630 tokens each time (about 275 for the main part, about 360 for figures), about 80 more with LaTeX. Off when mermaid is off.",
       "default": true
+    },
+    "hintTiming": {
+      "type": "string",
+      "title": "Diagram hint timing",
+      "description": "When the diagram hints reach the model. once: on the first prompt and again after /clear or /compact, so the prompt cache holds and the cost is paid once per context. reminder: like once, plus a one-line reminder (about 15 tokens) on every later prompt. every: the full note on every prompt, as older versions did; every copy stays in the conversation, so it grows by about 630 tokens per prompt.",
+      "default": "once",
+      "options": ["once", "reminder", "every"]
     },
     "latex": {
       "type": "boolean",

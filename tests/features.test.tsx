@@ -7,10 +7,11 @@ import { FIGURE_HINT } from '../hooks/figure'
 import { parse } from '../hooks/markdown'
 import { PRESET_BACKGROUNDS, PRESET_NAMES, PRESETS } from '../hooks/presets'
 import { RANDOM_THEMES, pickTheme, resolveStyle } from '../hooks/theme'
-import { ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
+import { HINT_REMINDER, ISSUE_HINT, SETUP_DONE, SETUP_PANE_KEYS, SETUP_PANE_OPENED, setupParts, setupSteps, setupText } from '../hooks/help'
 import type { Theme } from '../hooks/theme'
 import { EDIT_NOTES, PRISM_COLORS, bashEdits, columnWidths, contrast, describeShell, diffLines, diffTint, fullHue, movesTree, onTint, pathLanguage, previewBand, tint, wordTint, errorReason, formatDuration, groupSummary, isReadOnlyCall, programsOf, refusalReason, rememberCall, shortTarget, shortenPaths, withoutBashEdits } from '../hooks/render'
 import { claudeAt } from './claude-version'
+import { transcriptOf } from './transcript'
 
 const t = PRESETS['catppuccin-mocha']
 const BUTTON_PROBE = 'TextButtonProbe'
@@ -494,6 +495,7 @@ test('slash command output renders as markdown, errors stay native', async ($, o
 test('your prompts carry the render hint as model-only context', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
+  transcriptOf(on)
   on('prompt.submit', (_, e) => {
     seen.push(e.context)
     return { text: e.text, context: e.context }
@@ -504,9 +506,50 @@ test('your prompts carry the render hint as model-only context', async ($, on) =
   expect(seen[0]).toContain(FIGURE_HINT)
 })
 
+const submittedContext = async ($: Parameters<TestBody>[0], on: On, transcript: readonly string[]) => {
+  const seen: (readonly string[] | undefined)[] = []
+  mock.env(on, {})
+  transcriptOf(on, transcript)
+  on('prompt.submit', (_, e) => {
+    seen.push(e.context)
+    return { text: e.text, context: e.context }
+  })
+  await $.prompt.submit({ text: 'hi', wait: false, origin: { kind: 'composer' } })
+  return seen[0] ?? []
+}
+
+test('the render hint goes out once per context, so the history is never edited and the prompt cache holds', async ($, on) => {
+  const context = await submittedContext($, on, ['first prompt', `prompt.submit hook additional context: ${FIGURE_HINT}`, 'second prompt'])
+  expect(context).not.toContain(FIGURE_HINT)
+})
+
+test('the render hint is sent again once the context holds no copy, after a clear or a compaction', async ($, on) => {
+  const context = await submittedContext($, on, ['summary of the earlier conversation'])
+  expect(context).toContain(FIGURE_HINT)
+})
+
+test('hintTiming every sends the full render hint even when the context already holds it', { options: { hintTiming: 'every' } }, async ($, on) => {
+  const context = await submittedContext($, on, [`prompt.submit hook additional context: ${FIGURE_HINT}`])
+  expect(context).toContain(FIGURE_HINT)
+  expect(context).not.toContain(HINT_REMINDER)
+})
+
+test('hintTiming reminder swaps an already sent render hint for a one-line reminder', { options: { hintTiming: 'reminder' } }, async ($, on) => {
+  const context = await submittedContext($, on, [`prompt.submit hook additional context: ${FIGURE_HINT}`])
+  expect(context).not.toContain(FIGURE_HINT)
+  expect(context).toContain(HINT_REMINDER)
+})
+
+test('hintTiming reminder sends the full render hint, without a reminder, to a fresh context', { options: { hintTiming: 'reminder' } }, async ($, on) => {
+  const context = await submittedContext($, on, [])
+  expect(context).toContain(FIGURE_HINT)
+  expect(context).not.toContain(HINT_REMINDER)
+})
+
 test('prompts another plugin sends carry the render hint, framed or as your own words, notifications do not', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
+  transcriptOf(on)
   on('prompt.submit', (_, e) => {
     seen.push(e.context)
     return { text: e.text, context: e.context }
@@ -2664,6 +2707,7 @@ test('/prismantis setup draws each sample in its own style', async $ => {
 test('the issue hint rides the first prompt and every tenth, also with diagram hints off', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
+  transcriptOf(on)
   on('prompt.submit', (_, e) => {
     seen.push(e.context)
     return { text: e.text, context: e.context }
